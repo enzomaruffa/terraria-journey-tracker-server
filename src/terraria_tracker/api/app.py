@@ -40,9 +40,21 @@ def _mount_web_client(app: FastAPI) -> None:
 
         return
 
+    def _serve(path: Path) -> FileResponse:
+        """Serve a build file with cache headers that match how it is named.
+
+        Without this the browser applies heuristic freshness and can keep serving a previous
+        build after an update, which looks exactly like the update not having happened. Files
+        under ``_app/immutable`` carry a content hash in their name, so they can be cached
+        forever; everything else — index.html above all — must be revalidated every time.
+        """
+        immutable = "_app/immutable/" in path.as_posix()
+        cache = "public, max-age=31536000, immutable" if immutable else "no-cache, must-revalidate"
+        return FileResponse(path, headers={"Cache-Control": cache})
+
     @app.get("/", include_in_schema=False)
     async def _index() -> FileResponse:
-        return FileResponse(WEB_DIR / "index.html")
+        return _serve(WEB_DIR / "index.html")
 
     @app.get("/{path:path}", include_in_schema=False)
     async def _spa(path: str) -> Response:
@@ -54,8 +66,8 @@ def _mount_web_client(app: FastAPI) -> None:
         candidate = (WEB_DIR / path).resolve()
         # Reject anything that escapes the build directory before touching the filesystem.
         if candidate.is_relative_to(WEB_DIR) and candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(WEB_DIR / "index.html")
+            return _serve(candidate)
+        return _serve(WEB_DIR / "index.html")
 
     logger.info("serving the web client from %s", WEB_DIR)
 
@@ -105,6 +117,19 @@ def create_app(settings: Settings, state: TrackerState | None = None) -> FastAPI
         lifespan=lifespan,
     )
     app.state.tracker = tracker
+
+    @app.middleware("http")
+    async def _no_stale_api(request, call_next):
+        """Keep the browser from holding on to API responses.
+
+        Progress changes as you play and the catalogue changes when the data is refreshed, so
+        there is no version of these worth reusing. Without an explicit directive a browser is
+        free to apply heuristic freshness, which shows up as an update that "did not happen".
+        """
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     if settings.cors_origins:
         app.add_middleware(

@@ -41,6 +41,17 @@ your Terraria research progress, and only for reading, but it is worth knowing.
 
 Running the same line again later starts it again, and picks up any newer version.
 
+### How updates are guaranteed
+
+The setup line asks GitHub for the latest commit and downloads *that exact commit*, printing
+its short hash as it starts. A branch URL never changes, so caches are free to hand back a
+stale copy; a commit URL is unique per version, which makes an update either a genuine cache
+hit (unchanged, instant) or a genuine download (changed). The browser side matches: the page
+itself is always revalidated, while its content-hashed assets are cached forever.
+
+To confirm what you are running, compare the hash printed at startup with the version in the
+page footer, which shows the build timestamp.
+
 ## What actually gets put on your machine
 
 Three things, all inside your user profile:

@@ -88,3 +88,18 @@ def test_websocket_broadcasts_when_the_file_changes(client, player_file, sample_
         message = ws.receive_json()
         assert message["type"] == "progress"
         assert len(message["data"]["sacrificed"]) == len(trimmed)
+
+
+class TestCaching:
+    """A stale cache looks exactly like an update that never happened.
+
+    The bundled client is replaced wholesale on every release, so index.html must always be
+    revalidated while the content-hashed assets beside it can be kept forever.
+    """
+
+    def test_api_responses_are_never_stored(self, client):
+        assert client.get("/api/status").headers["cache-control"] == "no-store"
+        assert client.get("/api/items").headers["cache-control"] == "no-store"
+
+    def test_progress_is_never_stored(self, client):
+        assert client.get("/api/progress").headers["cache-control"] == "no-store"

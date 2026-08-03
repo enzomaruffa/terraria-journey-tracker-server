@@ -20,7 +20,6 @@ function Invoke-TerrariaTrackerSetup {
     param([string[]] $TrackerArgs = @())
 
     $repo    = 'enzomaruffa/terraria-journey-tracker-server'
-    $archive = "https://github.com/$repo/archive/refs/heads/main.zip"
     $logPath = Join-Path $env:TEMP 'terraria-tracker-setup.log'
 
     function Write-Log([string] $message) {
@@ -50,6 +49,36 @@ function Invoke-TerrariaTrackerSetup {
     Write-Host 'Terraria Journey Tracker' -ForegroundColor Green
     Write-Host 'Research progress, live from your character file.'
     Write-Log "--- setup started (PowerShell $($PSVersionTable.PSVersion)) ---"
+
+    <#
+        Pin the download to the exact commit rather than to "main".
+
+        A branch URL never changes, so every caching layer between here and GitHub is free to
+        hand back a stale copy — which is why an update could appear not to have happened. A
+        commit URL is unique per version: unchanged means a genuine cache hit and an instant
+        start, changed means a guaranteed fresh download. Correct by construction rather than
+        by remembering a --refresh flag.
+    #>
+    $sha = $null
+    try {
+        $sha = (Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/commits/main" `
+                                  -Headers @{ 'User-Agent' = 'terraria-journey-tracker' } `
+                                  -TimeoutSec 15).sha
+    } catch {
+        Write-Log "could not resolve the latest commit: $_"
+    }
+
+    if ($sha) {
+        $archive = "https://github.com/$repo/archive/$sha.zip"
+        $pinned  = $true
+        Write-Host "Version $($sha.Substring(0,7))" -ForegroundColor DarkGray
+    } else {
+        # No network to the API, or rate limited. Fall back to the branch and force a refetch.
+        $archive = "https://github.com/$repo/archive/refs/heads/main.zip"
+        $pinned  = $false
+        Write-Host 'Could not check the latest version; downloading the branch instead.' -ForegroundColor DarkGray
+    }
+    Write-Log "archive: $archive"
 
     $uv = Find-Uv
 
@@ -110,11 +139,11 @@ function Invoke-TerrariaTrackerSetup {
     Write-Host 'Press Ctrl+C here to stop the tracker.'
     Write-Host ''
 
-    # The archive URL is not versioned, so without --refresh-package a re-run would keep
-    # serving whatever was cached the first time.
-    $uvArgs = @(
-        'tool', 'run',
-        '--refresh-package', 'terraria-journey-tracker',
+    # A commit-pinned URL is already unique per version, so the cache can be trusted. Only the
+    # branch fallback needs forcing, since that URL is the same for every version.
+    $refresh = if ($pinned) { @() } else { @('--refresh-package', 'terraria-journey-tracker') }
+
+    $uvArgs = @('tool', 'run') + $refresh + @(
         '--from', $archive,
         'terraria-journey-tracker'
     ) + $extra + $TrackerArgs
