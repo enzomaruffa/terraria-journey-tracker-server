@@ -1,2 +1,70 @@
-[tool.black]
+[project]
+name = "terraria-journey-tracker"
+version = "2.0.0"
+description = "Watch a Terraria Journey mode character file and track research progress live in the browser"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.121",
+    "uvicorn[standard]>=0.40",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.13",
+    "pycryptodome>=3.23",
+    "watchdog>=6.0",
+]
+
+[project.optional-dependencies]
+scrape = [
+    "httpx>=0.28",
+    "beautifulsoup4>=4.14",
+    "lxml>=6.0",
+]
+
+[project.scripts]
+terraria-journey-tracker = "terraria_tracker.cli:main"
+terraria-tracker-refresh = "terraria_tracker.scraper.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/enzomaruffa/terraria-journey-tracker-server"
+"Web client" = "https://github.com/enzomaruffa/terraria-journey-tracker-web-client"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/terraria_tracker"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"data" = "terraria_tracker/gamedata/snapshots"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.3",
+    "httpx>=0.28",
+    "ruff>=0.14",
+]
+
+[tool.ruff]
 line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "SIM",  # simplify
+    "RUF",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.uv]
+package = true
