@@ -71,6 +71,30 @@ $zip = "https://github.com/enzomaruffa/terraria-journey-tracker-server/archive/r
 
 ## If something goes wrong
 
+First thing to try — this prints everything needed to work out what is wrong:
+
+```powershell
+$uv = "$env:USERPROFILE\.local\bin\uv.exe"
+$zip = "https://github.com/enzomaruffa/terraria-journey-tracker-server/archive/refs/heads/main.zip"
+& $uv tool run --from $zip terraria-journey-tracker --doctor
+```
+
+It reports your Python and Windows versions, whether the UI and game data are present, every
+save folder it checked, and every character it found.
+
+The setup script also always writes a log to `%TEMP%\terraria-tracker-setup.log`, which
+survives even if the window disappears.
+
+### The window closed straight away
+
+Fixed in the current version — update by running the one-liner again. If you are on an older
+copy, run the two steps by hand instead; nothing here can close your window:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
+& "$env:USERPROFILE\.local\bin\uv.exe" tool run --from "https://github.com/enzomaruffa/terraria-journey-tracker-server/archive/refs/heads/main.zip" terraria-journey-tracker
+```
+
 **"running scripts is disabled on this system"** — allow it for this window only:
 
 ```powershell
