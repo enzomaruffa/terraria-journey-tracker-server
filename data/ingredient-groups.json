@@ -1,11 +1,12 @@
 {
  "meta": {
   "source": "https://terraria.wiki.gg",
-  "generatedAt": "2026-08-03T01:06:31+00:00",
+  "generatedAt": "2026-08-03T02:53:22+00:00",
   "gameVersion": "1.4.5.6",
   "itemCount": 6022,
   "recipeCount": 4209,
-  "stationCount": 58
+  "stationCount": 58,
+  "droppedItemCount": 1106
  },
  "groups": {
   "Any Wood": [
