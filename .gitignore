@@ -27,5 +27,5 @@ htmlcov/
 *.wld
 *.wld.bak
 
-# Frontend build dropped in by `scripts/bundle-web.py`
-src/terraria_tracker/web/
+# The built web client IS committed (see scripts/bundle-web.py) — it is what makes a
+# zero-install run serve the full UI instead of a bare JSON API.

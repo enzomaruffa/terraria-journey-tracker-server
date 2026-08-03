@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Copy a built web client into the package so the server can serve it on its own port.
 
+The result is committed. That is what lets someone with an empty machine run
+
+    uvx --from <this repo's zip> terraria-journey-tracker
+
+and get the whole application rather than a bare JSON API.
+
 Usage:
     uv run python scripts/bundle-web.py ../terraria-journey-tracker-web-client/build
 """
@@ -13,6 +19,11 @@ import sys
 from pathlib import Path
 
 TARGET = Path(__file__).resolve().parent.parent / "src" / "terraria_tracker" / "web"
+
+# The client ships a copy of the item data for its no-server mode. Behind the tracker it
+# reads /api/items instead, so bundling it here would add ~3 MB to every install for
+# nothing.
+SKIP = shutil.ignore_patterns("data")
 
 
 def main() -> int:
@@ -27,11 +38,12 @@ def main() -> int:
 
     if TARGET.exists():
         shutil.rmtree(TARGET)
-    shutil.copytree(source, TARGET)
+    shutil.copytree(source, TARGET, ignore=SKIP)
 
-    files = sum(1 for _ in TARGET.rglob("*") if _.is_file())
-    print(f"bundled {files} files into {TARGET}")
-    print("the tracker will now serve the UI on its own port")
+    files = [p for p in TARGET.rglob("*") if p.is_file()]
+    size_kb = sum(p.stat().st_size for p in files) / 1024
+    print(f"bundled {len(files)} files ({size_kb:.0f} KB) into {TARGET}")
+    print("commit this so a fresh install serves the UI without Node")
     return 0
 
 
