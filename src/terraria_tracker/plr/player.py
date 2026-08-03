@@ -36,9 +36,14 @@ _MAX_NAME_LEN = 64
 # the game needs 100. The ceiling only has to be tight enough to reject random bytes.
 _MAX_SACRIFICE = 10_000
 
-# How many consecutive well-formed entries we demand before trusting an offset. Random
-# data clearing this bar is not a realistic possibility.
+# How many consecutive well-formed entries we demand before trusting an offset on the
+# strength of the run alone. Random data clearing this bar is not a realistic possibility.
 _MIN_RUN = 12
+
+# Terraria writes the entry count immediately before the table. When that count matches the
+# run exactly, far fewer entries are needed to be sure — which is what lets a freshly made
+# Journey character, with only a handful of items researched, still be read.
+_MIN_VERIFIED_RUN = 3
 
 
 class PlayerFileError(Exception):
@@ -118,14 +123,14 @@ def _candidate_entry(buffer: bytes, offset: int) -> tuple[str, int, int] | None:
     return raw.decode("ascii"), count, end + 4
 
 
-def _scan_research(buffer: bytes, known_names: set[str] | None) -> tuple[dict[str, int], int] | None:
-    """Find the research table and return ``(entries, start_offset)``.
+def _scan_research(buffer: bytes, known_names: set[str] | None) -> tuple[dict[str, int], int, bool] | None:
+    """Find the research table and return ``(entries, start_offset, count_verified)``.
 
     ``known_names`` is the set of internal names shipped in the bundled item data. When
     supplied, every entry in a run must be one of them, which is what makes a false match
     effectively impossible.
     """
-    best: tuple[dict[str, int], int] | None = None
+    best: tuple[dict[str, int], int, bool] | None = None
 
     offset = HEADER_SIZE
     limit = len(buffer) - 8
@@ -148,9 +153,13 @@ def _scan_research(buffer: bytes, known_names: set[str] | None) -> tuple[dict[st
                 break
             entries[name] = count
 
-        if len(entries) >= _MIN_RUN:
-            if best is None or len(entries) > len(best[0]):
-                best = (entries, offset)
+        verified = _count_matches(buffer, offset, len(entries))
+        long_enough = len(entries) >= _MIN_RUN or (verified and len(entries) >= _MIN_VERIFIED_RUN)
+
+        if long_enough:
+            # A run Terraria's own count agrees with always beats a longer unverified one.
+            if best is None or (verified, len(entries)) > (best[2], len(best[0])):
+                best = (entries, offset, verified)
             # Skip past the run we just consumed rather than re-scanning inside it.
             offset = cursor
             continue
@@ -182,10 +191,10 @@ def parse_player(raw: bytes, known_names: set[str] | None = None) -> PlayerSave:
 
     match = _scan_research(buffer, known_names)
     if match is not None:
-        entries, start = match
+        entries, _start, verified = match
         save.research = entries
         save.research_found = True
-        save.research_verified = _count_matches(buffer, start, len(entries))
+        save.research_verified = verified
 
     return save
 

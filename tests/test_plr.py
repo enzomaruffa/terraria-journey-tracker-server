@@ -88,6 +88,16 @@ class TestParsePlayer:
         with pytest.raises(PlayerFileError, match="relogic"):
             parse_player(encrypt_player_file(b"\x00" * 512))
 
+    def test_reads_a_brand_new_character_with_only_a_few_items(self, sample_research, game_data):
+        """Too short to trust on length alone, but Terraria's own entry count confirms it."""
+        tiny = dict(list(sample_research.items())[:4])
+        raw = build_plr(research=tiny)
+
+        save = parse_player(raw, known_names=game_data.internal_names)
+
+        assert save.research == tiny
+        assert save.research_verified
+
     def test_reports_when_there_is_no_research_table(self, game_data):
         raw = build_plr(research={}, filler_before=2000)
         save = parse_player(raw, known_names=game_data.internal_names)
