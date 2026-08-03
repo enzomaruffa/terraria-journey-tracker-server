@@ -10,6 +10,7 @@ from pathlib import Path
 
 from terraria_tracker.logging_setup import setup_logging
 from terraria_tracker.scraper.alternatives import fetch_ingredient_groups
+from terraria_tracker.scraper.drops import fetch_drops
 from terraria_tracker.scraper.items import fetch_items
 from terraria_tracker.scraper.recipes import fetch_recipes
 from terraria_tracker.scraper.wiki import WIKI, CargoClient
@@ -53,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             items = fetch_items(client)
             groups = fetch_ingredient_groups(client)
             recipes, stations = fetch_recipes(client, items, groups)
+            drops = fetch_drops(client, items)
     except Exception as exc:
         logger.error("refresh failed: %s", exc)
         return 1
@@ -64,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     meta["itemCount"] = len(items)
     meta["recipeCount"] = len(recipes)
     meta["stationCount"] = len(stations)
+    meta["droppedItemCount"] = len(drops)
 
     _write(args.out / "items.json", {"meta": meta, "items": items})
     _write(args.out / "recipes.json", {"meta": meta, "recipes": recipes})
@@ -72,13 +75,15 @@ def main(argv: list[str] | None = None) -> int:
         {"meta": meta, "stations": {str(k): v for k, v in sorted(stations.items())}},
     )
     _write(args.out / "ingredient-groups.json", {"meta": meta, "groups": groups})
+    _write(args.out / "drops.json", {"meta": meta, "drops": drops})
 
     logger.info(
-        "done: %d items, %d recipes, %d stations, %d ingredient groups",
+        "done: %d items, %d recipes, %d stations, %d ingredient groups, %d items with drop sources",
         len(items),
         len(recipes),
         len(stations),
         len(groups),
+        len(drops),
     )
     return 0
 

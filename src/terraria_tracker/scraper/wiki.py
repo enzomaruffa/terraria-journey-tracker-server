@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+import re
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -8,6 +10,10 @@ from urllib.parse import quote
 import httpx
 
 from terraria_tracker.logging_setup import logger
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_BREAK_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+_SORT_VALUE_RE = re.compile(r'data-sort-value="([\d.]+)"')
 
 WIKI = "https://terraria.wiki.gg"
 API = f"{WIKI}/api.php"
@@ -113,3 +119,53 @@ def image_url(image_file: str) -> str:
 
 def wiki_url(page_name: str) -> str:
     return f"{WIKI}/wiki/{page_name.replace(' ', '_')}"
+
+
+def strip_html(value: str | None) -> str:
+    """Plain text from a cargo field.
+
+    Fields arrive either as real markup or as escaped entities depending on the query, so
+    unescaping happens first and then again after tag removal.
+    """
+    if not value:
+        return ""
+    text = html.unescape(value)
+    text = _TAG_RE.sub("", text)
+    return html.unescape(text).strip()
+
+
+def text_lines(value: str | None) -> list[str]:
+    """Split a tooltip into its display lines.
+
+    Tooltips look like ``<span class="gameText">line one<br/>line two</span>``.
+    """
+    if not value:
+        return []
+    parts = _BREAK_RE.split(html.unescape(value))
+    return [line for line in (strip_html(part) for part in parts) if line]
+
+
+def sort_value_float(value: str | None) -> float | None:
+    """Read the numeric ``data-sort-value`` the wiki attaches to rendered values.
+
+    Coin amounts and drop rates render as markup but carry a plain number as a sort key,
+    which is far more usable than parsing "90 Silver Coins" or "1/36 (2.78%)" back out.
+    """
+    if not value:
+        return None
+    match = _SORT_VALUE_RE.search(value)
+    if match:
+        return float(match.group(1))
+
+    # Some rows are already a bare number.
+    text = strip_html(value).replace(",", "")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def sort_value(value: str | None) -> int | None:
+    """Integer form of :func:`sort_value_float`, for coin values which are whole coppers."""
+    number = sort_value_float(value)
+    return None if number is None else int(number)

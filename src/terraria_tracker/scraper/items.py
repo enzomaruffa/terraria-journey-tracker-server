@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from terraria_tracker.logging_setup import logger
-from terraria_tracker.scraper.wiki import CargoClient, image_url, wiki_url
+from terraria_tracker.scraper.wiki import CargoClient, image_url, sort_value, text_lines, wiki_url
 
-FIELDS = "itemid,name,internalname,imagefile,research,type,rare"
+FIELDS = (
+    "itemid,name,internalname,imagefile,research,type,rare,"
+    "tooltip,sell,buy,damage,defense,placeable,stack,hardmode,consumable"
+)
 
 # Terraria ships a handful of items whose wiki internal name has never matched the one in
 # save files. Without this the tracker reports them as "unknown item" forever.
@@ -74,6 +77,16 @@ def fetch_items(client: CargoClient) -> dict[str, dict]:
             "wikiUrl": wiki_url(name),
             "categories": _categories(row.get("type")),
             "rarity": _as_int(row.get("rare")),
+            "tooltip": text_lines(row.get("tooltip")),
+            # Coin values are stored in copper, which is how the wiki sorts them.
+            "sell": sort_value(row.get("sell")),
+            "buy": sort_value(row.get("buy")),
+            "damage": _as_int(row.get("damage"), default=0) or None,
+            "defense": _as_int(row.get("defense"), default=0) or None,
+            "maxStack": _as_int(row.get("stack"), default=0) or None,
+            "placeable": bool(str(row.get("placeable") or "").strip()),
+            "hardmode": bool(str(row.get("hardmode") or "").strip()),
+            "consumable": bool(str(row.get("consumable") or "").strip()),
         }
 
     logger.info(

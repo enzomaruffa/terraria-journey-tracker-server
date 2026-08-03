@@ -6,7 +6,7 @@ from terraria_tracker.logging_setup import logger
 from terraria_tracker.scraper.stations import SPECIAL_STATIONS, STATION_ALIASES
 from terraria_tracker.scraper.wiki import CargoClient, image_url
 
-FIELDS = "result,resultid,station,args"
+FIELDS = "result,resultid,station,args,amount"
 
 # The wiki packs a recipe's ingredients into one string: entries separated by "^", and
 # name/amount separated by a broken bar. The old parser split on the character class
@@ -38,6 +38,19 @@ def _parse_args(args: str | None) -> list[tuple[str, int]]:
             quantity = 1
         parsed.append((name, quantity))
     return parsed
+
+
+def _parse_yield(amount: str | None) -> int:
+    """How many items one craft produces.
+
+    Torch is 1 Gel + 1 Wood for *three* Torches. Treating every recipe as yielding one
+    overstates what you need to gather by up to 33x on the worst offenders.
+    """
+    try:
+        value = int(str(amount).strip())
+    except (TypeError, ValueError):
+        return 1
+    return value if value > 0 else 1
 
 
 def _resolve_ingredient(
@@ -154,6 +167,7 @@ def fetch_recipes(
                 "id": result_id,
                 "name": (row.get("result") or "").strip(),
                 "stationIds": station_ids,
+                "yield": _parse_yield(row.get("amount")),
                 "ingredients": ingredients,
             }
         )
