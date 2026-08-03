@@ -5,10 +5,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from terraria_tracker import __version__
 from terraria_tracker.api.routes import router
@@ -41,19 +40,20 @@ def _mount_web_client(app: FastAPI) -> None:
 
         return
 
-    app.mount("/assets", StaticFiles(directory=WEB_DIR / "assets"), name="assets")
-
     @app.get("/", include_in_schema=False)
     async def _index() -> FileResponse:
         return FileResponse(WEB_DIR / "index.html")
 
     @app.get("/{path:path}", include_in_schema=False)
-    async def _spa(path: str) -> FileResponse | JSONResponse:
+    async def _spa(path: str) -> Response:
+        # No build layout is assumed here: whatever the bundled client contains is served,
+        # and anything else falls through to index.html for client-side routing.
         if path.startswith("api/"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
+
         candidate = (WEB_DIR / path).resolve()
         # Reject anything that escapes the build directory before touching the filesystem.
-        if candidate.is_file() and candidate.is_relative_to(WEB_DIR):
+        if candidate.is_relative_to(WEB_DIR) and candidate.is_file():
             return FileResponse(candidate)
         return FileResponse(WEB_DIR / "index.html")
 
@@ -79,6 +79,8 @@ def create_app(settings: Settings, state: TrackerState | None = None) -> FastAPI
                 loop,
                 tracker.refresh_and_broadcast,
                 debounce_seconds=settings.debounce_seconds,
+                poll=settings.poll,
+                poll_seconds=settings.poll_seconds,
             )
             try:
                 watcher.start()
