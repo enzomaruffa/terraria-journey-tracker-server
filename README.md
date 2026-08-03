@@ -12,21 +12,34 @@ The companion UI lives in
 
 ## Quick start
 
-You need [uv](https://docs.astral.sh/uv/). Nothing else — not even Python.
+Nothing needs to be installed first — no Python, Node, Git or a copy of this repository.
+
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/enzomaruffa/terraria-journey-tracker-server/main/install.ps1 | iex
+```
+
+**macOS / Linux**:
+
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uvx --from https://github.com/enzomaruffa/terraria-journey-tracker-server/archive/refs/heads/main.zip terraria-journey-tracker
+```
+
+Either way it installs [uv](https://docs.astral.sh/uv/) if missing, finds your most recently
+played character, starts watching it, serves the UI and opens
+<http://127.0.0.1:4777>. The built web client ships inside the package, so there is no
+separate frontend to build or run.
+
+Windows users who would rather not touch PowerShell can download the repository as a ZIP and
+double-click `run-windows.bat`. Full walkthrough and troubleshooting:
+**[WINDOWS.md](WINDOWS.md)**.
+
+From a checkout, the equivalent is:
 
 ```sh
 uv run terraria-journey-tracker
-```
-
-That finds your most recently played character, starts watching it, serves the UI and opens
-your browser at <http://127.0.0.1:4777>.
-
-On Windows you can instead double-click **`run-windows.bat`**, which installs `uv` on first
-run and then does the same thing.
-
-To point it at a specific character:
-
-```sh
 uv run terraria-journey-tracker "path/to/Character.plr"
 uv run terraria-journey-tracker --list      # show every character it can find
 ```
@@ -125,8 +138,20 @@ uv run ruff format .
 
 ## Docker
 
-The image builds the web client too, so the container serves the UI and the API together.
-Check out both repositories side by side, then:
+Worth using if you already run Docker; it is not the easy path on a machine with nothing
+installed, since Docker Desktop is a far larger install than the tracker itself.
+
+Once the publish workflow has run once, a released image can be pulled directly:
+
+```sh
+docker run -p 4777:4777 \
+  -e TERRARIA_PLAYER_FILE=/players/Enzo.plr \
+  -v "$HOME/Documents/My Games/Terraria/Players:/players:ro" \
+  ghcr.io/enzomaruffa/terraria-journey-tracker-server:latest
+```
+
+To build it yourself instead: the image builds the web client too, so the container serves
+the UI and the API together. Check out both repositories side by side, then:
 
 ```sh
 export TERRARIA_PLAYERS_DIR="$HOME/Documents/My Games/Terraria/Players"

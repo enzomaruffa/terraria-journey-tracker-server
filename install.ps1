@@ -55,8 +55,9 @@ Write-Host 'First run downloads the tracker and its dependencies; later runs are
 Write-Host 'Your browser opens automatically. Press Ctrl+C here to stop.'
 Write-Host ''
 
-# --refresh so a re-run picks up a newer version of the tracker rather than a cached zip.
-& $uv tool run --refresh --from $Archive terraria-journey-tracker @args
+# The archive URL is not versioned, so without this a re-run would keep serving whatever was
+# cached the first time. Scoped to this package to avoid re-resolving every dependency.
+& $uv tool run --refresh-package terraria-journey-tracker --from $Archive terraria-journey-tracker @args
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`nThe tracker exited with an error." -ForegroundColor Red
