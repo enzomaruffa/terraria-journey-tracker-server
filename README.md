@@ -52,6 +52,7 @@ tModLoader subfolders are picked up on every platform.
 | `--no-browser` | `TERRARIA_OPEN_BROWSER` | opens a browser |
 | `-v`, `--verbose` | `TERRARIA_VERBOSE` | off |
 | positional path | `TERRARIA_PLAYER_FILE` | auto-detected |
+| — | `TERRARIA_POLL` | off (on in Docker) |
 
 All of them are optional; a `.env` file is read if present.
 
@@ -124,15 +125,38 @@ uv run ruff format .
 
 ## Docker
 
+The image builds the web client too, so the container serves the UI and the API together.
+Check out both repositories side by side, then:
+
 ```sh
-docker build -t terraria-tracker .
-docker run -p 4777:4777 \
-  -v "$HOME/.local/share/Terraria/Players/Enzo.plr:/data/player.plr:ro" \
-  terraria-tracker
+export TERRARIA_PLAYERS_DIR="$HOME/Documents/My Games/Terraria/Players"
+export TERRARIA_CHARACTER=Enzo.plr
+
+docker compose up
 ```
 
-Filesystem events do not always cross a bind mount, so the container may notice saves less
-promptly than running natively.
+Open <http://localhost:4777>. Compose variables:
+
+| Variable | Meaning |
+| --- | --- |
+| `TERRARIA_PLAYERS_DIR` | your Terraria `Players` folder (required) |
+| `TERRARIA_CHARACTER` | the `.plr` inside it to watch (required) |
+| `TERRARIA_PORT` | host port, default `4777` |
+| `WEB_CLIENT_PATH` | client checkout, default `../terraria-journey-tracker-web-client` |
+
+Two things the compose file handles that are easy to get wrong by hand:
+
+- **The whole `Players` directory is mounted, not the single `.plr`.** Terraria replaces the
+  file when it saves, and a bind mount of one file keeps pointing at the old, deleted inode,
+  so progress would freeze after the first save.
+- **`TERRARIA_POLL` is on.** Filesystem events do not cross a bind mount on Docker Desktop,
+  so the container checks the file on a timer instead of waiting to be notified.
+
+To build without compose, pass the client as a named build context:
+
+```sh
+docker build --build-context webclient=../terraria-journey-tracker-web-client -t terraria-tracker .
+```
 
 ## License
 

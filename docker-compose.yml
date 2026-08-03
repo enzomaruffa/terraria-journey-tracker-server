@@ -1,0 +1,17 @@
+services:
+  tracker:
+    build:
+      context: .
+      additional_contexts:
+        # Where your checkout of the web client lives. Override with WEB_CLIENT_PATH.
+        webclient: ${WEB_CLIENT_PATH:-../terraria-journey-tracker-web-client}
+    ports:
+      - '${TERRARIA_PORT:-4777}:4777'
+    environment:
+      # Points at a file inside the mount below.
+      TERRARIA_PLAYER_FILE: /players/${TERRARIA_CHARACTER:?set TERRARIA_CHARACTER, e.g. Enzo.plr}
+    volumes:
+      # Mount the whole Players directory, not the single .plr. Terraria replaces the file
+      # on save, and a bind mount of one file keeps pointing at the old, deleted inode.
+      - '${TERRARIA_PLAYERS_DIR:?set TERRARIA_PLAYERS_DIR to your Terraria Players folder}:/players:ro'
+    restart: unless-stopped
