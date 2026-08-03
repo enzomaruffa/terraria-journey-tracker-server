@@ -1,26 +1,138 @@
-# Terraria Journey Tracker - Server
+# Terraria Journey Tracker — Server
 
-The main purpose of this project is to track your progress when playing Terraria Journey mode. This repository is the backend part of the project and has the following features:
-- Decrypt the player file, read it and update the frontend whenever a change is made.
-- Has methods that can be run to get new items added to the the game when it is updated. This is made through the use of the MediaWiki API of [terraria.wiki.gg//api.php](https://terraria.wiki.gg//api.php) and [terraria.fandom.com/api.php](https://terraria.fandom.com/api.php)
+Watches your Terraria **Journey mode** character file and streams research progress to a
+browser as you play. Sacrifice an item in-game, and the page updates a moment later without
+a refresh.
 
-## Requirements
-To run this project you will need to install [OpenSSL](https://www.openssl.org/)
+Bundled data covers **Terraria 1.4.5.6 "Bigger & Boulder"** — 6,022 researchable items,
+4,209 recipes, 58 crafting stations.
 
-## Installation
+The companion UI lives in
+[terraria-journey-tracker-web-client](https://github.com/enzomaruffa/terraria-journey-tracker-web-client).
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the requirements file.
+## Quick start
 
-```bash
-pip install -r requirements
-```
-It's also necessary to create a copy of `.env.example` named `.env` and fill the appropriate environment variables.
-
-## Usage
+You need [uv](https://docs.astral.sh/uv/). Nothing else — not even Python.
 
 ```sh
-py start.py
+uv run terraria-journey-tracker
 ```
+
+That finds your most recently played character, starts watching it, serves the UI and opens
+your browser at <http://127.0.0.1:4777>.
+
+On Windows you can instead double-click **`run-windows.bat`**, which installs `uv` on first
+run and then does the same thing.
+
+To point it at a specific character:
+
+```sh
+uv run terraria-journey-tracker "path/to/Character.plr"
+uv run terraria-journey-tracker --list      # show every character it can find
+```
+
+### Where character files are found
+
+Auto-detection covers the usual locations, newest character first:
+
+| Platform | Location |
+| --- | --- |
+| Windows | `Documents\My Games\Terraria\Players` — including a OneDrive-redirected Documents, read from the registry |
+| macOS | `~/Library/Application Support/Terraria/Players` |
+| Linux | `~/.local/share/Terraria/Players`, plus the Proton prefix for app 105600 |
+
+tModLoader subfolders are picked up on every platform.
+
+## Options
+
+| Flag | Environment variable | Default |
+| --- | --- | --- |
+| `--host` | `TERRARIA_HOST` | `127.0.0.1` |
+| `--port` | `TERRARIA_PORT` | `4777` |
+| `--no-browser` | `TERRARIA_OPEN_BROWSER` | opens a browser |
+| `-v`, `--verbose` | `TERRARIA_VERBOSE` | off |
+| positional path | `TERRARIA_PLAYER_FILE` | auto-detected |
+
+All of them are optional; a `.env` file is read if present.
+
+## API
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/status` | which character is loaded, which data version is bundled |
+| `GET /api/progress` | overview counters, per-item sacrifice counts, craftable ids |
+| `GET /api/items` | item catalogue |
+| `GET /api/recipes` | recipes with resolved ingredient ids |
+| `GET /api/stations` | crafting stations and what each one makes |
+| `GET /api/players` | every character file found on this machine |
+| `POST /api/players/select` | switch the watched character |
+| `WS /api/ws` | `status`, `progress` and `error` messages, pushed on every save |
+
+`GET /api/progress` sends only items with a non-zero sacrifice count, so a fresh character
+is a few hundred bytes rather than the whole catalogue.
+
+## Serving the UI from this process
+
+The tracker serves a built client from its own port when one is bundled, which is what makes
+the single-command setup possible:
+
+```sh
+cd ../terraria-journey-tracker-web-client && npm install && npm run build
+cd ../terraria-journey-tracker-server
+uv run python scripts/bundle-web.py ../terraria-journey-tracker-web-client/build
+```
+
+Without a bundled build the API still runs on its own, and you can develop the client
+against it with `npm run dev` on port 5173 (already allowed through CORS).
+
+## Refreshing the game data
+
+When Terraria updates, rebuild the item, recipe and station snapshots from
+[terraria.wiki.gg](https://terraria.wiki.gg):
+
+```sh
+uv run --extra scrape terraria-tracker-refresh --game-version 1.4.6.0
+```
+
+This takes a couple of minutes and rewrites `data/*.json`. It reports anything it could not
+resolve rather than dropping it silently. The current snapshot leaves 12 ingredient names
+unresolved across 32 of 4,209 recipes — all items removed from Desktop Terraria (Soul of
+Blight, the Key Molds, Purple/White Thread), which cannot be researched anyway.
+
+## How the character file is read
+
+`.plr` files are AES-128-CBC encrypted under a key Terraria ships in its own binary, then
+laid out as a dense `BinaryWriter` blob whose field order shifts with most content patches.
+
+Rather than walking to the research table with hardcoded offsets — which is why this project
+broke on every Terraria update — the parser *searches* for it. Each entry is a
+length-prefixed string followed by an `int32`, and every string must be an item internal
+name the game actually ships. A run of a dozen of those in a row is a fingerprint nothing
+else in the file produces, so the table is found without knowing what precedes it, and the
+entry count Terraria stores just ahead of the table confirms the match.
+
+In practice: a new Terraria version changes the data, not the code.
+
+## Development
+
+```sh
+uv sync --extra scrape
+uv run pytest
+uv run ruff check .
+uv run ruff format .
+```
+
+## Docker
+
+```sh
+docker build -t terraria-tracker .
+docker run -p 4777:4777 \
+  -v "$HOME/.local/share/Terraria/Players/Enzo.plr:/data/player.plr:ro" \
+  terraria-tracker
+```
+
+Filesystem events do not always cross a bind mount, so the container may notice saves less
+promptly than running natively.
 
 ## License
 
