@@ -25,20 +25,29 @@ Running the same line again later starts it again, and picks up any newer versio
 
 ## What actually gets put on your machine
 
-| What | Where | Size |
-| --- | --- | --- |
-| `uv.exe` | `%USERPROFILE%\.local\bin` | ~35 MB |
-| A private Python + the tracker | `%USERPROFILE%\AppData\Roaming\uv` | ~120 MB |
+Three things, all inside your user profile:
 
-Nothing is added to the system Python, the registry, or Program Files, and your character
-file is only ever opened for reading.
+- `uv.exe` in `%USERPROFILE%\.local\bin` — a single ~40 MB binary
+- a private Python, roughly 60 MB, that uv downloads for itself
+- the tracker and its dependencies, under 100 MB
+
+uv will tell you the exact locations on your machine:
+
+```powershell
+uv python dir
+uv tool dir
+uv cache dir
+```
+
+Nothing touches a system Python, the registry, or Program Files. Your character file is only
+ever opened for reading.
 
 To remove all of it:
 
 ```powershell
-uv tool uninstall terraria-journey-tracker
 uv cache clean
-Remove-Item -Recurse -Force "$env:USERPROFILE\.local\bin\uv.exe"
+Remove-Item -Recurse -Force (uv python dir), (uv tool dir)
+Remove-Item -Force "$env:USERPROFILE\.local\bin\uv.exe"
 ```
 
 ## Where it looks for your character
