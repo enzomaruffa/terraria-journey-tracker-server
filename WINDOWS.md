@@ -21,6 +21,24 @@ That is the whole setup. It will:
 Leave the PowerShell window open while you play. Sacrifice something in-game and the page
 updates on its own a moment later. Press `Ctrl+C` in that window to stop.
 
+### Your phone as a second screen
+
+The same window prints a **QR code**. Scan it and the tracker opens on your phone, on the
+same live data — handy when the game has the monitor. The layout switches from cards to a
+compact list on small screens.
+
+Windows will ask whether to allow network access the first time. Allowing it is what makes
+the phone link work; declining leaves the tracker reachable from this PC only. To skip LAN
+mode entirely:
+
+```powershell
+$s = irm https://raw.githubusercontent.com/enzomaruffa/terraria-journey-tracker-server/main/install.ps1
+Invoke-Expression "$s"; Invoke-TerrariaTrackerSetup -TrackerArgs @('--no-lan')
+```
+
+Anything on your network can reach the tracker while LAN mode is on. It only ever exposes
+your Terraria research progress, and only for reading, but it is worth knowing.
+
 Running the same line again later starts it again, and picks up any newer version.
 
 ## What actually gets put on your machine

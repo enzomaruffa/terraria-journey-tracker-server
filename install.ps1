@@ -88,12 +88,25 @@ function Invoke-TerrariaTrackerSetup {
 
     Write-Step "Using uv at $uv"
 
+    # The machine running this is the one running the game, so the useful second screen is a
+    # phone. LAN mode is therefore the default here, and prints a QR to scan. Anyone who does
+    # not want it can pass --host or --no-lan.
+    $wantsLan = -not ($TrackerArgs | Where-Object { $_ -in @('--lan', '--no-lan', '--host') })
+    $extra = if ($wantsLan) { @('--lan') } else { @() }
+    # Wrapped in @() because filtering down to nothing yields $null, and $null survives array
+    # concatenation as an empty argument that uv would reject.
+    $TrackerArgs = @($TrackerArgs | Where-Object { $_ -ne '--no-lan' })
+
     Write-Step 'Starting the tracker'
     Write-Host 'The first run downloads the tracker and its dependencies, which takes a'
     Write-Host 'minute or two. Later runs start immediately.'
     Write-Host ''
     Write-Host 'When it is ready, a browser opens at http://127.0.0.1:4777' -ForegroundColor Green
-    Write-Host 'If it does not open, type that address in yourself.'
+    if ($wantsLan) {
+        Write-Host 'A QR code will also appear — scan it to open the tracker on your phone.' -ForegroundColor Green
+        Write-Host 'Windows may ask to allow network access; that prompt is what makes the'
+        Write-Host 'phone link work. Decline it and only this PC can connect.'
+    }
     Write-Host 'Press Ctrl+C here to stop the tracker.'
     Write-Host ''
 
@@ -104,7 +117,7 @@ function Invoke-TerrariaTrackerSetup {
         '--refresh-package', 'terraria-journey-tracker',
         '--from', $archive,
         'terraria-journey-tracker'
-    ) + $TrackerArgs
+    ) + $extra + $TrackerArgs
 
     Write-Log "running: $uv $($uvArgs -join ' ')"
 

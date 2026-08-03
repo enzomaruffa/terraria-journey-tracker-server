@@ -26,9 +26,16 @@ if errorlevel 1 (
 echo.
 echo Starting the Terraria Journey Tracker ...
 echo Your browser will open automatically. Close this window to stop.
+echo A QR code will appear too - scan it to open the tracker on your phone.
 echo.
 
-"%UV%" run terraria-journey-tracker %*
+REM --lan by default: this PC runs the game, so the useful second screen is a phone.
+REM Pass --host yourself to keep it to this machine only.
+if "%~1"=="" (
+    "%UV%" run terraria-journey-tracker --lan
+) else (
+    "%UV%" run terraria-journey-tracker %*
+)
 
 if errorlevel 1 (
     echo.

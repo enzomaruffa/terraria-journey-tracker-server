@@ -36,6 +36,19 @@ Windows users who would rather not touch PowerShell can download the repository 
 double-click `run-windows.bat`. Full walkthrough and troubleshooting:
 **[WINDOWS.md](WINDOWS.md)**.
 
+### Watching from your phone
+
+```sh
+uv run terraria-journey-tracker --lan
+```
+
+Prints a QR code and a `http://192.168.x.x:4777` address any device on the same network can
+open, so a phone can sit beside you as a checklist while the game has the screen. The UI
+switches from cards to a compact list on small screens.
+
+This is opt-in because it binds beyond loopback: with `--lan`, anything on your network can
+reach the tracker. Without it, nothing outside your own machine can.
+
 From a checkout, the equivalent is:
 
 ```sh
@@ -62,6 +75,8 @@ tModLoader subfolders are picked up on every platform.
 | --- | --- | --- |
 | `--host` | `TERRARIA_HOST` | `127.0.0.1` |
 | `--port` | `TERRARIA_PORT` | `4777` |
+| `--lan` | — | off; serves to your network and prints a QR |
+| `--doctor` | — | print diagnostics and exit |
 | `--no-browser` | `TERRARIA_OPEN_BROWSER` | opens a browser |
 | `-v`, `--verbose` | `TERRARIA_VERBOSE` | off |
 | positional path | `TERRARIA_PLAYER_FILE` | auto-detected |
