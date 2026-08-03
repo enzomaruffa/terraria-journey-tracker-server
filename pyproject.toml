@@ -12,6 +12,8 @@ dependencies = [
     "pydantic-settings>=2.13",
     "pycryptodome>=3.23",
     "watchdog>=6.0",
+    # Renders the scannable link for --lan. Pure Python, no dependencies of its own.
+    "segno>=1.6",
 ]
 
 [project.optional-dependencies]

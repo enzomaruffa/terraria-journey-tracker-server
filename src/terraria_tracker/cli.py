@@ -13,6 +13,7 @@ from terraria_tracker import __version__
 from terraria_tracker.config import Settings
 from terraria_tracker.locate import SAVE_SUBDIRS, autodetect_player, discover_players, save_roots
 from terraria_tracker.logging_setup import setup_logging
+from terraria_tracker.network import lan_address, qr_lines
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--host", help="interface to bind (default 127.0.0.1)")
     parser.add_argument("--port", type=int, help="port to listen on (default 4777)")
+    parser.add_argument(
+        "--lan",
+        action="store_true",
+        help="also serve to other devices on your network, and print a link to scan from a phone",
+    )
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser on start")
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     parser.add_argument("--list", action="store_true", help="list detected character files and exit")
@@ -64,6 +70,22 @@ def _resolve_player_file(settings: Settings, logger) -> Path | None:
     if detected is None:
         _report_no_characters(logger)
     return detected
+
+
+def _print_lan_invite(port: int, logger) -> None:
+    """Show the address a phone on the same network can open, and a QR to save typing it."""
+    address = lan_address()
+    if address is None:
+        logger.warning("could not work out this machine's network address — is it offline?")
+        return
+
+    url = f"http://{address}:{port}"
+
+    print(file=sys.stderr)
+    for line in qr_lines(url):
+        print(f"  {line}", file=sys.stderr)
+    print(f"\n  Scan that, or open  {url}  on any device on this network.", file=sys.stderr)
+    print("  The tracker is now reachable by anything on your network.\n", file=sys.stderr)
 
 
 def run_doctor() -> int:
@@ -107,6 +129,10 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     overrides = {}
+    if args.lan:
+        # Binding every interface is what makes the phone able to reach it, which is why this
+        # is opt-in rather than the default.
+        overrides["host"] = "0.0.0.0"
     if args.host:
         overrides["host"] = args.host
     if args.port:
@@ -145,6 +171,9 @@ def main(argv: list[str] | None = None) -> int:
 
     url = f"http://{'127.0.0.1' if settings.host in {'0.0.0.0', '::'} else settings.host}:{settings.port}"
     logger.info("tracker running at %s", url)
+
+    if args.lan:
+        _print_lan_invite(settings.port, logger)
 
     if settings.open_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
