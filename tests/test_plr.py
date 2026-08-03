@@ -111,3 +111,40 @@ class TestParsePlayer:
 
         assert not save.is_journey
         assert save.difficulty_name == "classic"
+
+
+class TestUnfamiliarNames:
+    """A save may contain items the bundled data has never heard of.
+
+    That happens whenever the player is on a newer Terraria than the last data refresh, or
+    running a mod. Treating an unknown name as the end of the table silently discarded every
+    entry beyond it, so a fully researched item could read as zero.
+    """
+
+    def _mixed(self, sample: dict[str, int], positions: set[int]) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for index, (name, count) in enumerate(sample.items()):
+            if index in positions:
+                out[f"UnknownFutureItem{index}"] = 5
+            out[name] = count
+        return out
+
+    def test_keeps_entries_past_an_unknown_name(self, sample_research, game_data):
+        mixed = self._mixed(sample_research, {12})
+        save = parse_player(build_plr(research=mixed), known_names=game_data.internal_names)
+
+        assert save.research == mixed
+        assert save.research_verified
+
+    def test_survives_several_unknown_names(self, sample_research, game_data):
+        mixed = self._mixed(sample_research, {2, 15, 28, 37})
+        save = parse_player(build_plr(research=mixed), known_names=game_data.internal_names)
+
+        assert save.research == mixed
+
+    def test_still_rejects_a_run_of_mostly_unfamiliar_names(self, game_data):
+        """Confidence has to come from somewhere, or random bytes could pass as a table."""
+        noise = {f"NotARealItem{i}": i for i in range(40)}
+        save = parse_player(build_plr(research=noise), known_names=game_data.internal_names)
+
+        assert not save.research_found

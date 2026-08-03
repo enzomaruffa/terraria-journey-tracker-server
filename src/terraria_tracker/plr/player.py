@@ -45,6 +45,10 @@ _MIN_RUN = 12
 # Journey character, with only a handful of items researched, still be read.
 _MIN_VERIFIED_RUN = 3
 
+# What share of a run's names must be ones the bundled data knows. The real table is very
+# close to 1.0; random bytes that happen to parse score near 0.
+_MIN_RECOGNISED = 0.5
+
 
 class PlayerFileError(Exception):
     pass
@@ -126,37 +130,45 @@ def _candidate_entry(buffer: bytes, offset: int) -> tuple[str, int, int] | None:
 def _scan_research(buffer: bytes, known_names: set[str] | None) -> tuple[dict[str, int], int, bool] | None:
     """Find the research table and return ``(entries, start_offset, count_verified)``.
 
-    ``known_names`` is the set of internal names shipped in the bundled item data. When
-    supplied, every entry in a run must be one of them, which is what makes a false match
-    effectively impossible.
+    A run ends where the *shape* stops matching, not where a name is unrecognised. An
+    unfamiliar internal name is expected — the player may be on a newer Terraria than the
+    bundled data, or running a mod — and treating one as the end of the table silently threw
+    away every entry on the far side of it.
+
+    ``known_names`` instead acts as a confidence measure: the real table is almost entirely
+    names we know, whereas random bytes that happen to parse are almost entirely names we do
+    not. Requiring most of a run to be recognised keeps false matches impossible without
+    making a single stranger fatal.
     """
     best: tuple[dict[str, int], int, bool] | None = None
 
     offset = HEADER_SIZE
     limit = len(buffer) - 8
     while offset < limit:
-        first = _candidate_entry(buffer, offset)
-        if first is None:
+        if _candidate_entry(buffer, offset) is None:
             offset += 1
             continue
 
         entries: dict[str, int] = {}
+        known = 0
         cursor = offset
+
         while cursor < limit:
             entry = _candidate_entry(buffer, cursor)
             if entry is None:
                 break
             name, count, cursor = entry
-            if known_names is not None and name not in known_names:
-                break
             if name in entries:  # the table is a dictionary; a repeat means we drifted
                 break
             entries[name] = count
+            if known_names is None or name in known_names:
+                known += 1
 
+        recognised = known / len(entries) if entries else 0.0
         verified = _count_matches(buffer, offset, len(entries))
         long_enough = len(entries) >= _MIN_RUN or (verified and len(entries) >= _MIN_VERIFIED_RUN)
 
-        if long_enough:
+        if long_enough and recognised >= _MIN_RECOGNISED:
             # A run Terraria's own count agrees with always beats a longer unverified one.
             if best is None or (verified, len(entries)) > (best[2], len(best[0])):
                 best = (entries, offset, verified)
