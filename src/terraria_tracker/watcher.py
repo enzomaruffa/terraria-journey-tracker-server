@@ -15,6 +15,7 @@ from pathlib import Path
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 from watchdog.observers.api import BaseObserver
+from watchdog.observers.polling import PollingObserver
 
 from terraria_tracker.logging_setup import logger
 
@@ -44,11 +45,15 @@ class PlayerFileWatcher:
         loop: asyncio.AbstractEventLoop,
         on_change: Callable[[], object],
         debounce_seconds: float = 0.4,
+        poll: bool = False,
+        poll_seconds: float = 2.0,
     ) -> None:
         self.path = path
         self.loop = loop
         self.on_change = on_change
         self.debounce_seconds = debounce_seconds
+        self.poll = poll
+        self.poll_seconds = poll_seconds
 
         self._observer: BaseObserver | None = None
         self._timer: threading.Timer | None = None
@@ -76,10 +81,10 @@ class PlayerFileWatcher:
             raise FileNotFoundError(f"cannot watch {directory}: directory does not exist")
 
         handler = _SaveHandler(self.path.name, self._schedule)
-        self._observer = Observer()
+        self._observer = PollingObserver(timeout=self.poll_seconds) if self.poll else Observer()
         self._observer.schedule(handler, str(directory), recursive=False)
         self._observer.start()
-        logger.info("watching %s", self.path)
+        logger.info("watching %s%s", self.path, " (polling)" if self.poll else "")
 
     def stop(self) -> None:
         with self._timer_lock:

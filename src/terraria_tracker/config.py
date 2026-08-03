@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # to settle before re-reading so one save does not produce five broadcasts.
     debounce_seconds: float = 0.4
 
+    # Filesystem events do not cross a bind mount on Docker Desktop, so a container has to
+    # poll for changes instead of waiting to be told about them.
+    poll: bool = False
+    poll_seconds: float = 2.0
+
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",
