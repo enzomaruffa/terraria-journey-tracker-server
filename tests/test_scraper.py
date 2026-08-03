@@ -1,6 +1,7 @@
-from terraria_tracker.scraper.recipes import _parse_args, _resolve_ingredient, _station_ids
+from terraria_tracker.scraper.drops import _clean_rate, _rate_percent
+from terraria_tracker.scraper.recipes import _parse_args, _parse_yield, _resolve_ingredient, _station_ids
 from terraria_tracker.scraper.stations import SPECIAL_STATIONS
-from terraria_tracker.scraper.wiki import image_url
+from terraria_tracker.scraper.wiki import image_url, sort_value, text_lines
 
 ITEMS_BY_NAME = {
     "Iron Bar": 22,
@@ -74,6 +75,69 @@ class TestStations:
 
     def test_no_station_means_by_hand(self):
         assert _station_ids(None, ITEMS_BY_NAME, set()) == [SPECIAL_STATIONS["By Hand"][0]]
+
+
+class TestYield:
+    def test_reads_the_craft_yield(self):
+        """Torch is 1 Gel + 1 Wood for three Torches; treating it as one overstates gathering."""
+        assert _parse_yield("3") == 3
+
+    def test_defaults_to_one_when_absent(self):
+        assert _parse_yield(None) == 1
+        assert _parse_yield("") == 1
+
+    def test_never_returns_zero(self):
+        # A zero yield would make "how many crafts" divide by zero downstream.
+        assert _parse_yield("0") == 1
+
+
+class TestTooltips:
+    def test_splits_on_line_breaks(self):
+        raw = '<span class="gameText">Increases maximum mana by 40<br/>6% increased magic crit</span>'
+        assert text_lines(raw) == ["Increases maximum mana by 40", "6% increased magic crit"]
+
+    def test_handles_escaped_markup(self):
+        assert text_lines("&lt;span&gt;Provides light&lt;/span&gt;") == ["Provides light"]
+
+    def test_empty_tooltip_is_no_lines(self):
+        assert text_lines(None) == []
+        assert text_lines("") == []
+
+
+class TestCoinValues:
+    def test_reads_the_sort_value_in_copper(self):
+        raw = '<span class="coin" title="90 Silver Coins" data-sort-value="9000">90 SC</span>'
+        assert sort_value(raw) == 9000
+
+    def test_missing_value_is_none(self):
+        assert sort_value("") is None
+
+
+class TestDropRates:
+    def test_plain_percentage(self):
+        assert _rate_percent("0.4%", _clean_rate("0.4%")) == 0.4
+
+    def test_rendered_fraction_uses_the_sort_value(self):
+        raw = '<span class="chance" data-sort-value="2.78">1/36 (2.78%)</span>'
+        assert _rate_percent(raw, _clean_rate(raw)) == 2.78
+
+    def test_sort_value_keeps_its_precision(self):
+        """Read as an int, a 2.78% drop chance would round to 2."""
+        raw = '<span class="chance" data-sort-value="2.78">1/36</span>'
+        assert isinstance(_rate_percent(raw, _clean_rate(raw)), float)
+
+    def test_difficulty_link_becomes_readable(self):
+        assert _clean_rate("1%[[Expert Mode|1.99%]]") == "1% (Expert: 1.99%)"
+
+    def test_difficulty_link_reports_the_base_rate(self):
+        raw = "1%[[Expert Mode|1.99%]]"
+        assert _rate_percent(raw, _clean_rate(raw)) == 1.0
+
+    def test_plain_wikilink_keeps_its_label(self):
+        assert _clean_rate("[[Gel]]") == "Gel"
+
+    def test_unparseable_rate_is_none_not_zero(self):
+        assert _rate_percent("varies", _clean_rate("varies")) is None
 
 
 class TestImageUrl:

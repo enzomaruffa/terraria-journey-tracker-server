@@ -31,6 +31,15 @@ def _items_payload(data: GameData) -> dict:
                 "wikiUrl": item.wiki_url,
                 "categories": list(item.categories),
                 "rarity": item.rarity,
+                "tooltip": list(item.tooltip),
+                "sell": item.sell,
+                "buy": item.buy,
+                "damage": item.damage,
+                "defense": item.defense,
+                "maxStack": item.max_stack,
+                "placeable": item.placeable,
+                "hardmode": item.hardmode,
+                "consumable": item.consumable,
             }
             for item in data.items.values()
         },
@@ -45,6 +54,7 @@ def _recipes_payload(data: GameData) -> dict:
                 "id": recipe.id,
                 "name": recipe.name,
                 "stationIds": list(recipe.station_ids),
+                "yield": recipe.yields,
                 "ingredients": [
                     {"name": ing.name, "ids": list(ing.ids), "amount": ing.amount} for ing in recipe.ingredients
                 ],
@@ -65,6 +75,26 @@ def _stations_payload(data: GameData) -> dict:
                 "craftableIds": list(station.craftable_ids),
             }
             for station in data.stations.values()
+        },
+    }
+
+
+def _drops_payload(data: GameData) -> dict:
+    return {
+        "meta": data.meta,
+        "drops": {
+            str(item_id): [
+                {
+                    "source": drop.source,
+                    "quantity": drop.quantity,
+                    "rate": drop.rate,
+                    "ratePercent": drop.rate_percent,
+                    "expert": drop.expert,
+                    "master": drop.master,
+                }
+                for drop in entries
+            ]
+            for item_id, entries in data.drops.items()
         },
     }
 
@@ -92,6 +122,11 @@ async def recipes(request: Request) -> dict:
 @router.get("/stations")
 async def stations(request: Request) -> dict:
     return _stations_payload(_state(request).data)
+
+
+@router.get("/drops")
+async def drops(request: Request) -> dict:
+    return _drops_payload(_state(request).data)
 
 
 @router.get("/progress")

@@ -4,7 +4,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from terraria_tracker.gamedata.models import GameData, Ingredient, Item, Recipe, Station
+from terraria_tracker.gamedata.models import Drop, GameData, Ingredient, Item, Recipe, Station
 
 
 class GameDataError(RuntimeError):
@@ -45,8 +45,34 @@ def _parse_items(payload: dict) -> dict[int, Item]:
             wiki_url=raw.get("wikiUrl", ""),
             categories=tuple(raw.get("categories", ())),
             rarity=int(raw.get("rarity", 0) or 0),
+            tooltip=tuple(raw.get("tooltip", ())),
+            sell=raw.get("sell"),
+            buy=raw.get("buy"),
+            damage=raw.get("damage"),
+            defense=raw.get("defense"),
+            max_stack=raw.get("maxStack"),
+            placeable=bool(raw.get("placeable", False)),
+            hardmode=bool(raw.get("hardmode", False)),
+            consumable=bool(raw.get("consumable", False)),
         )
         for item_id, raw in payload["items"].items()
+    }
+
+
+def _parse_drops(payload: dict) -> dict[int, tuple[Drop, ...]]:
+    return {
+        int(item_id): tuple(
+            Drop(
+                source=raw["source"],
+                quantity=raw.get("quantity", "1"),
+                rate=raw.get("rate", ""),
+                rate_percent=raw.get("ratePercent"),
+                expert=bool(raw.get("expert", False)),
+                master=bool(raw.get("master", False)),
+            )
+            for raw in entries
+        )
+        for item_id, entries in payload["drops"].items()
     }
 
 
@@ -56,6 +82,7 @@ def _parse_recipes(payload: dict) -> list[Recipe]:
             id=int(raw["id"]),
             name=raw["name"],
             station_ids=tuple(int(s) for s in raw["stationIds"]),
+            yields=int(raw.get("yield", 1) or 1),
             ingredients=tuple(
                 Ingredient(
                     name=ing["name"],
@@ -88,9 +115,14 @@ def load_game_data() -> GameData:
     recipes_payload = _load(directory / "recipes.json")
     stations_payload = _load(directory / "stations.json")
 
+    # Older data releases predate the drops table; the tracker still works without it.
+    drops_path = directory / "drops.json"
+    drops = _parse_drops(_load(drops_path)) if drops_path.is_file() else {}
+
     return GameData(
         meta=items_payload.get("meta", {}),
         items=_parse_items(items_payload),
         recipes=_parse_recipes(recipes_payload),
         stations=_parse_stations(stations_payload),
+        drops=drops,
     )

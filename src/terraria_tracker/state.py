@@ -93,6 +93,7 @@ class TrackerState:
             "itemCount": len(self.data.items),
             "recipeCount": len(self.data.recipes),
             "stationCount": len(self.data.stations),
+            "droppedItemCount": len(self.data.drops),
             "error": self.error,
             "hasProgress": self.progress is not None,
         }

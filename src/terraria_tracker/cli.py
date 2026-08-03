@@ -82,6 +82,7 @@ def run_doctor() -> int:
 
         data = load_game_data()
         print(f"game data   Terraria {data.game_version}: {len(data.items)} items, {len(data.recipes)} recipes")
+        print(f"            {len(data.drops)} items with drop sources")
         print(f"            {data_dir()}")
     except Exception as exc:
         # Reporting a broken install is the whole job here, so nothing is re-raised.
